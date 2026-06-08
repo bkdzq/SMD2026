@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>SORM to Breitung Derivation</title>
+<script>
+window.MathJax = {
+  tex: { inlineMath: [['$', '$'], ['\\(', '\\)']], displayMath: [['$$', '$$']] },
+  svg: { fontCache: 'global' }
+};
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+<style>
+body { margin:0; font-family: Arial, sans-serif; background:#f5f5f5; color:#111; }
+.page { max-width:1100px; margin:0 auto; padding:28px 22px 40px; }
+h1 { font-size:28px; margin:0 0 20px; text-align:center; font-weight:700; }
+.step { background:#fff; border:1px solid #cfcfcf; border-radius:10px; padding:18px 22px; margin:14px 0; box-shadow:0 1px 2px rgba(0,0,0,0.04); }
+.step-title { font-size:18px; font-weight:700; margin-bottom:10px; }
+.text { font-size:16px; line-height:1.45; margin:8px 0; }
+.equation { font-size:18px; overflow-x:auto; padding:4px 0; }
+.final { border:2px solid #111; background:#fafafa; }
+.footer { margin-top:20px; font-size:14px; color:#444; text-align:center; }
+</style>
+</head>
+<body>
+<div class="page">
+
+<h1>Missing derivation: from SORM integral to Breitung formula</h1>
+
+<div class="step">
+<div class="step-title">1. Parabolic expression</div>
+<div class="text">First, the parabolic expression is obtained as</div>
+<div class="equation">
+$$
+g(\boldsymbol y)
+\approx
+\|\nabla g\|
+\left[
+\beta-y_n
++
+\frac12
+\sum_{i=1}^{n-1}
+\rho_i y_i^2
+\right].
+$$
+</div>
+</div>
+
+<div class="step">
+<div class="step-title">2. Failure condition</div>
+<div class="text">For failure to happen,</div>
+<div class="equation">$$ g(\boldsymbol y)<0. $$</div>
+<div class="text">Since</div>
+<div class="equation">$$ \|\nabla g\|>0, $$</div>
+<div class="text">we have</div>
+<div class="equation">
+$$
+\beta-y_n
++
+\frac12
+\sum_{i=1}^{n-1}
+\rho_i y_i^2
+\le 0.
+$$
+</div>
+<div class="text">Therefore, the $n$-th dimension is restricted by the lower boundary</div>
+<div class="equation">
+$$
+y_n
+\ge
+\beta
++
+\frac12
+\sum_{i=1}^{n-1}
+\rho_i y_i^2.
+$$
+</div>
+</div>
+
+<div class="step">
+<div class="step-title">3. Joint PDF factorization</div>
+<div class="text">Since $\boldsymbol Y$ follows an independent standard normal distribution, the joint PDF can be expressed as the product of marginal PDFs:</div>
+<div class="equation">
+$$
+\varphi_n(\boldsymbol y)
+=
+\prod_{i=1}^{n}
+\varphi(y_i).
+$$
+</div>
+</div>
+
+<div class="step">
+<div class="step-title">4. Express the integral</div>
+<div class="text">Now we express the integral as follows: the first $n-1$ dimensions have no boundary restriction, while the $n$-th dimension has the restriction shown above:</div>
+<div class="equation">
+$$
+P_F
+\approx
+\int_{\mathbb R^{n-1}}
+\int_{\beta+\frac12\sum_{i=1}^{n-1}\rho_i y_i^2}^{\infty}
+\varphi(y_n)
+\prod_{i=1}^{n-1}
+\varphi(y_i)
+\,dy_n\,dy_1\cdots dy_{n-1}.
+$$
+</div>
+</div>
+
+<div class="step">
+<div class="step-title">5. Integrate the $n$-th dimension</div>
+<div class="text">For a standard normal variable, we have the property</div>
+<div class="equation">
+$$
+\int_a^\infty
+\varphi(y_n)\,dy_n
+=
+1-\Phi(a)
+=
+\Phi(-a).
+$$
+</div>
+<div class="text">Hence, the previous $P_F$ can be written as follows: the $n$-th dimensional integral becomes $\Phi(-a)$, and the remaining part is kept unchanged:</div>
+<div class="equation">
+$$
+P_F
+\approx
+\int_{\mathbb R^{n-1}}
+\Phi\left(
+-\beta
+-
+\frac12
+\sum_{i=1}^{n-1}
+\rho_i y_i^2
+\right)
+\prod_{i=1}^{n-1}
+\varphi(y_i)
+\,dy_i.
+$$
+</div>
+</div>
+
+<div class="step">
+<div class="step-title">6. Large-$\beta$ approximation</div>
+<div class="text">Since we have the approximation rule</div>
+<div class="equation">
+$$
+\frac{\Phi(-\beta-\delta)}
+{\Phi(-\beta)}
+\approx
+\exp(-\beta\delta),
+$$
+</div>
+<div class="text">for large $\beta$, we have</div>
+<div class="equation">
+$$
+\Phi(-\beta-\delta)
+\approx
+\Phi(-\beta)
+\exp(-\beta\delta).
+$$
+</div>
+<div class="text">Here,</div>
+<div class="equation">
+$$
+\delta
+=
+\frac12
+\sum_{i=1}^{n-1}
+\rho_i y_i^2.
+$$
+</div>
+<div class="text">Therefore, as $\beta$ approaches infinity, we have the approximation</div>
+<div class="equation">
+$$
+P_F
+\approx
+\int_{\mathbb R^{n-1}}
+\Phi(-\beta)
+\exp\left(
+-\frac{\beta}{2}
+\sum_{i=1}^{n-1}
+\rho_i y_i^2
+\right)
+\prod_{i=1}^{n-1}
+\varphi(y_i)
+\,dy_i.
+$$
+</div>
+</div>
+
+<div class="step">
+<div class="step-title">7. Take $\Phi(-\beta)$ outside</div>
+<div class="text">Now take $\Phi(-\beta)$ as a constant outside the integral:</div>
+<div class="equation">
+$$
+P_F
+\approx
+\Phi(-\beta)
+\int_{\mathbb R^{n-1}}
+\exp\left(
+-\frac{\beta}{2}
+\sum_{i=1}^{n-1}
+\rho_i y_i^2
+\right)
+\prod_{i=1}^{n-1}
+\varphi(y_i)
+\,dy_i.
+$$
+</div>
+</div>
+
+<div class="step">
+<div class="step-title">8. Factorize the expression</div>
+<div class="text">Now rewrite the expression. Because the exponential and the density factorize,</div>
+<div class="equation">
+$$
+\exp\left(
+-\frac{\beta}{2}
+\sum_{i=1}^{n-1}
+\rho_i y_i^2
+\right)
+=
+\prod_{i=1}^{n-1}
+\exp\left(
+-\frac{\beta\rho_i}{2}
+y_i^2
+\right),
+$$
+</div>
+<div class="text">and</div>
+<div class="equation">
+$$
+\prod_{i=1}^{n-1}
+\varphi(y_i)
+$$
+</div>
+<div class="text">also factorizes, the integral becomes a product:</div>
+<div class="equation">
+$$
+P_F
+\approx
+\Phi(-\beta)
+\prod_{i=1}^{n-1}
+\int_{-\infty}^{\infty}
+\exp\left(
+-\frac{\beta\rho_i}{2}
+y_i^2
+\right)
+\varphi(y_i)
+\,dy_i.
+$$
+</div>
+</div>
+
+<div class="step">
+<div class="step-title">9. Substitute the standard normal PDF</div>
+<div class="text">Substitute the expression</div>
+<div class="equation">
+$$
+\varphi(y_i)
+=
+\frac{1}{\sqrt{2\pi}}
+\exp\left(
+-\frac12 y_i^2
+\right).
+$$
+</div>
+<div class="text">Then</div>
+<div class="equation">
+$$
+\exp\left(
+-\frac{\beta\rho_i}{2}
+y_i^2
+\right)
+\varphi(y_i)
+=
+\frac{1}{\sqrt{2\pi}}
+\exp\left[
+-\frac12
+(1+\beta\rho_i)
+y_i^2
+\right].
+$$
+</div>
+</div>
+
+<div class="step">
+<div class="step-title">10. Final Gaussian integral</div>
+<div class="text">Finally, we have</div>
+<div class="equation">
+$$
+\int_{-\infty}^{\infty}
+\exp\left(
+-\frac{\beta\rho_i}{2}
+y_i^2
+\right)
+\varphi(y_i)
+\,dy_i
+=
+(1+\beta\rho_i)^{-1/2},
+$$
+</div>
+<div class="text">provided</div>
+<div class="equation">$$ 1+\beta\rho_i>0. $$</div>
+</div>
+
+<div class="step final">
+<div class="step-title">11. Breitung result</div>
+<div class="text">Thus,</div>
+<div class="equation">
+$$
+P_{F,\mathrm{Breitung}}
+=
+\Phi(-\beta)
+\prod_{i=1}^{n-1}
+(1+\beta\rho_i)^{-1/2}.
+$$
+</div>
+</div>
+
+<div class="footer">
+Concise derivation page: parabolic SORM boundary → restricted normal integral → large-$\beta$ approximation → Breitung correction.
+</div>
+
+</div>
+</body>
+</html>

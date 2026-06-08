@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>FORM / SORM 3D Gaussian Illustration</title>
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+<style>
+  html, body {
+    margin: 0;
+    height: 100%;
+    background: white;
+    font-family: "Times New Roman", Times, serif;
+  }
+  #plot {
+    width: 100vw;
+    height: 100vh;
+  }
+</style>
+</head>
+
+<body>
+<div id="plot"></div>
+
+<script>
+// ============================================================
+// FORM/SORM textbook-style 3D illustration using Plotly.js
+//
+// Convention:
+//   g(u1,u2) < 0 : safe region      -> Gaussian surface kept
+//   g(u1,u2) > 0 : failure region   -> Gaussian surface cut away
+//
+// g(u1,u2) = 0.55 u1 + u2 + 0.13 u1^2 + 0.03 u1^3 - 2.05
+// g=0 can be written explicitly as:
+//   u2 = 2.05 - 0.55 u1 - 0.13 u1^2 - 0.03 u1^3
+// ============================================================
+
+const L = 4.0;
+const N = 120;
+const z0 = 0.0;
+
+function linspace(a, b, n) {
+  const arr = [];
+  const h = (b - a) / (n - 1);
+  for (let i = 0; i < n; i++) arr.push(a + i*h);
+  return arr;
+}
+
+function phi(x, y) {
+  return (1.0 / (2.0*Math.PI)) * Math.exp(-0.5*(x*x + y*y));
+}
+
+function gfun(x, y) {
+  return 0.55*x + y + 0.13*x*x + 0.03*x*x*x - 2.05;
+}
+
+function yOnG0(x) {
+  return 2.05 - 0.55*x - 0.13*x*x - 0.03*x*x*x;
+}
+
+// ------------------------------------------------------------
+// 1. Grid and cut Gaussian surface
+// ------------------------------------------------------------
+const u1 = linspace(-L, L, N);
+const u2 = linspace(-L, L, N);
+
+let X = [];
+let Y = [];
+let Z = [];
+let Zfull = [];
+let failurePatch = [];
+
+for (let j = 0; j < N; j++) {
+  let rowX = [];
+  let rowY = [];
+  let rowZ = [];
+  let rowZfull = [];
+  let rowF = [];
+
+  for (let i = 0; i < N; i++) {
+    const x = u1[i];
+    const y = u2[j];
+    const p = phi(x,y);
+    const gv = gfun(x,y);
+
+    rowX.push(x);
+    rowY.push(y);
+    rowZfull.push(p);
+
+    // Cut away failure side: g > 0
+    rowZ.push(gv > 0 ? null : p);
+
+    // Bottom failure patch
+    rowF.push(gv > 0 ? 0 : null);
+  }
+
+  X.push(rowX);
+  Y.push(rowY);
+  Z.push(rowZ);
+  Zfull.push(rowZfull);
+  failurePatch.push(rowF);
+}
+
+const zmax = (1/(2*Math.PI)) * 1.15;
+
+// Light green-yellow-orange-red colorscale
+const lightScale = [
+  [0.00, "rgb(180,255,65)"],
+  [0.35, "rgb(235,245,40)"],
+  [0.65, "rgb(255,170,20)"],
+  [1.00, "rgb(230,40,0)"]
+];
+
+let traces = [];
+
+const failureBaseTrace = {
+  type: "surface",
+  x: X,
+  y: Y,
+  z: failurePatch,
+  surfacecolor: failurePatch,
+  colorscale: [[0, "rgba(180,210,255,0.30)"], [1, "rgba(180,210,255,0.30)"]],
+  showscale: false,
+  opacity: 0.20,
+  hoverinfo: "skip",
+  name: "failure base patch"
+};
+
+const surfaceTrace = {
+  type: "surface",
+  x: X,
+  y: Y,
+  z: Z,
+  surfacecolor: Zfull,
+  colorscale: lightScale,
+  cmin: 0,
+  cmax: 1/(2*Math.PI),
+  showscale: false,
+  opacity: 1.0,
+  contours: {
+    z: { show: true, usecolormap: false, color: "rgba(0,0,0,0.40)", width: 1 }
+  },
+  lighting: {
+    ambient: 0.72,
+    diffuse: 0.78,
+    specular: 0.10,
+    roughness: 0.80
+  },
+  hoverinfo: "skip",
+  name: "cut Gaussian PDF"
+};
+
+traces.push(failureBaseTrace);
+traces.push(surfaceTrace);
+
+// ------------------------------------------------------------
+// 2. Bottom contour projection of the Gaussian PDF
+//    phi = c  ->  r = sqrt(-2 log(2*pi*c))
+// ------------------------------------------------------------
+const contourLevels = linspace(0.005, 0.155, 14);
+const theta = linspace(0, 2*Math.PI, 260);
+
+for (const c of contourLevels) {
+  const r2 = -2*Math.log(2*Math.PI*c);
+  if (r2 <= 0) continue;
+
+  const r = Math.sqrt(r2);
+  const xsC = theta.map(t => r*Math.cos(t));
+  const ysC = theta.map(t => r*Math.sin(t));
+  const zsC = theta.map(_ => z0);
+
+  traces.push({
+    type: "scatter3d",
+    mode: "lines",
+    x: xsC,
+    y: ysC,
+    z: zsC,
+    line: { color: "rgb(10,70,255)", width: 3 },
+    hoverinfo: "skip",
+    showlegend: false
+  });
+}
+
+// ------------------------------------------------------------
+// 3. g=0 curve and blue vertical cut wall
+// ------------------------------------------------------------
+const xg = linspace(-3.55, 3.05, 260);
+const yg = xg.map(x => yOnG0(x));
+const zg = xg.map((x,i) => phi(x, yg[i]));
+
+// g=0 on base plane
+traces.push({
+  type: "scatter3d",
+  mode: "lines",
+  x: xg,
+  y: yg,
+  z: xg.map(_ => z0),
+  line: { color: "black", width: 7 },
+  hoverinfo: "skip",
+  name: "g=0 on base"
+});
+
+// g=0 on surface
+traces.push({
+  type: "scatter3d",
+  mode: "lines",
+  x: xg,
+  y: yg,
+  z: zg,
+  line: { color: "black", width: 4 },
+  hoverinfo: "skip",
+  showlegend: false
+});
+
+// Blue vertical cut wall
+for (let i = 0; i < xg.length; i += 3) {
+  traces.push({
+    type: "scatter3d",
+    mode: "lines",
+    x: [xg[i], xg[i]],
+    y: [yg[i], yg[i]],
+    z: [z0, zg[i]],
+    line: { color: "rgb(0,35,255)", width: 2 },
+    hoverinfo: "skip",
+    showlegend: false
+  });
+}
+
+// ------------------------------------------------------------
+// 4. MPP search by 1D minimization on explicit g=0 curve
+//    minimize beta^2 = x^2 + y(x)^2
+// ------------------------------------------------------------
+function beta2OnCurve(x) {
+  const y = yOnG0(x);
+  return x*x + y*y;
+}
+
+// Golden-section search
+function goldenSearch(f, a, b, tol=1e-12, maxIter=300) {
+  const gr = (Math.sqrt(5)-1)/2;
+  let c = b - gr*(b-a);
+  let d = a + gr*(b-a);
+
+  for (let k = 0; k < maxIter; k++) {
+    if (Math.abs(b-a) < tol) break;
+    if (f(c) < f(d)) {
+      b = d;
+      d = c;
+      c = b - gr*(b-a);
+    } else {
+      a = c;
+      c = d;
+      d = a + gr*(b-a);
+    }
+  }
+  return 0.5*(a+b);
+}
+
+const xs = goldenSearch(beta2OnCurve, -3.5, 3.5);
+const ys = yOnG0(xs);
+const beta = Math.sqrt(xs*xs + ys*ys);
+const phis = phi(xs, ys);
+
+// MPP point on base
+traces.push({
+  type: "scatter3d",
+  mode: "markers",
+  x: [xs],
+  y: [ys],
+  z: [z0],
+  marker: { color: "black", size: 5, symbol: "square" },
+  hoverinfo: "skip",
+  showlegend: false
+});
+
+// Beta line: true origin -> u*
+traces.push({
+  type: "scatter3d",
+  mode: "lines",
+  x: [0, xs],
+  y: [0, ys],
+  z: [z0, z0],
+  line: { color: "black", width: 5 },
+  hoverinfo: "skip",
+  showlegend: false
+});
+
+// Vertical MPP-to-PDF line
+traces.push({
+  type: "scatter3d",
+  mode: "lines+markers",
+  x: [xs, xs],
+  y: [ys, ys],
+  z: [z0, phis],
+  line: { color: "black", width: 5 },
+  marker: { color: "black", size: 4 },
+  hoverinfo: "skip",
+  showlegend: false
+});
+
+// Leader line for MPP text
+traces.push({
+  type: "scatter3d",
+  mode: "lines",
+  x: [xs, xs+0.85],
+  y: [ys, ys+0.72],
+  z: [phis, phis+0.028],
+  line: { color: "black", width: 4, dash: "dot" },
+  hoverinfo: "skip",
+  showlegend: false
+});
+
+// ------------------------------------------------------------
+// 5. FORM tangent and SORM parabolic approximation at u*
+// ------------------------------------------------------------
+const gx = 0.55 + 0.26*xs + 0.09*xs*xs;
+const gy = 1.0;
+const ngrad = Math.sqrt(gx*gx + gy*gy);
+
+const nx = gx/ngrad;
+const ny = gy/ngrad;
+const tx = -ny;
+const ty = nx;
+
+// Hessian of g wrt [u1,u2]
+// g_xx = 0.26 + 0.18*x, g_xy = 0, g_yy = 0
+const gxx = 0.26 + 0.18*xs;
+const kappa = (tx*gxx*tx) / ngrad;
+
+const sVals = linspace(-1.8, 1.8, 180);
+
+const formX = sVals.map(s => xs + tx*s);
+const formY = sVals.map(s => ys + ty*s);
+
+const sormX = sVals.map(s => xs + tx*s - 0.5*kappa*s*s*nx);
+const sormY = sVals.map(s => ys + ty*s - 0.5*kappa*s*s*ny);
+
+traces.push({
+  type: "scatter3d",
+  mode: "lines",
+  x: formX,
+  y: formY,
+  z: sVals.map(_ => z0),
+  line: { color: "rgb(210,20,20)", width: 6, dash: "dash" },
+  hoverinfo: "skip",
+  name: "FORM"
+});
+
+traces.push({
+  type: "scatter3d",
+  mode: "lines",
+  x: sormX,
+  y: sormY,
+  z: sVals.map(_ => z0),
+  line: { color: "rgb(0,150,0)", width: 6, dash: "dashdot" },
+  hoverinfo: "skip",
+  name: "SORM"
+});
+
+// ------------------------------------------------------------
+// 6. True origin axes: these are the real u1/u2 axes
+// ------------------------------------------------------------
+const axL = 4.2;
+
+function addLine(x, y, z, color="black", width=4) {
+  traces.push({
+    type: "scatter3d",
+    mode: "lines",
+    x, y, z,
+    line: { color, width },
+    hoverinfo: "skip",
+    showlegend: false
+  });
+}
+
+addLine([-axL, axL], [0,0], [0,0]);      // u1-axis
+addLine([0,0], [-axL, axL], [0,0]);      // u2-axis
+addLine([0,0], [0,0], [0,zmax]);         // PDF axis
+
+// Gaussian global peak at the origin, distinct from MPP on g=0
+traces.push({
+  type: "scatter3d",
+  mode: "markers",
+  x: [0],
+  y: [0],
+  z: [1/(2*Math.PI)],
+  marker: { color: "black", size: 4, symbol: "circle" },
+  hoverinfo: "skip",
+  showlegend: false
+});
+
+// ------------------------------------------------------------
+// 7. Text labels
+// ------------------------------------------------------------
+traces.push({
+  type: "scatter3d",
+  mode: "text",
+  x: [
+    axL+0.40,       // u1-axis label
+    0,              // u2-axis label
+    0,              // phi label
+    xs+0.25,        // MPP base label
+    0.5*xs-0.25,    // beta label
+    xs+0.92,        // true MPP density label
+    2.6,            // failure label
+    3.0,            // g=0 label
+    xs+2.65,        // FORM label
+    xs+2.45,        // SORM label
+    -0.95           // origin peak label
+  ],
+  y: [
+    0,
+    axL+0.40,
+    0,
+    ys+0.15,
+    0.5*ys+0.20,
+    ys+0.78,
+    1.8,
+    0.4,
+    ys+1.15,
+    ys+0.60,
+    -0.75
+  ],
+  z: [
+    0,
+    0,
+    zmax+0.010,
+    0,
+    0.005,
+    phis+0.030,
+    0,
+    0,
+    0.006,
+    0.006,
+    1/(2*Math.PI)+0.012
+  ],
+  text: [
+    "u₁-axis",
+    "u₂-axis",
+    "φ(u₁,u₂)",
+    "MPP u*",
+    "β",
+    "Highest density on g=0",
+    "g(u₁,u₂)>0 failure",
+    "g(u₁,u₂)=0",
+    "FORM (1st-order)",
+    "SORM (2nd-order)",
+    "Gaussian peak"
+  ],
+  textfont: {
+    family: "Times New Roman",
+    size: 24,
+    color: [
+      "black","black","black","black","black","black",
+      "black","black","rgb(210,20,20)","rgb(0,150,0)","black"
+    ]
+  },
+  hoverinfo: "skip",
+  showlegend: false
+});
+
+// ------------------------------------------------------------
+// 8. Layout
+// ------------------------------------------------------------
+const layout = {
+  margin: {l: 0, r: 0, t: 0, b: 0},
+  paper_bgcolor: "white",
+  plot_bgcolor: "white",
+  showlegend: false,
+
+  annotations: [
+    {
+      x: 0.03,
+      y: 0.96,
+      xref: "paper",
+      yref: "paper",
+      text: "g(u₁,u₂) = 0.55u₁ + u₂ + 0.13u₁² + 0.03u₁³ − 2.05",
+      showarrow: false,
+      align: "left",
+      font: {family: "Times New Roman", size: 26, color: "black"},
+      bgcolor: "rgba(255,255,255,0.75)",
+      bordercolor: "rgba(0,0,0,0.25)",
+      borderwidth: 1,
+      borderpad: 6
+    }
+  ],
+
+  scene: {
+    xaxis: {
+      range: [-4,4],
+      title: {
+        text: "u₁",
+        font: { family: "Times New Roman", size: 24, color: "black" }
+      },
+      showticklabels: false,
+      ticks: "",
+      showbackground: false,
+      showgrid: true,
+      gridcolor: "rgba(0,0,0,0.35)",
+      zeroline: false
+    },
+    yaxis: {
+      range: [-4,4],
+      title: {
+        text: "u₂",
+        font: { family: "Times New Roman", size: 24, color: "black" }
+      },
+      showticklabels: false,
+      ticks: "",
+      showbackground: false,
+      showgrid: true,
+      gridcolor: "rgba(0,0,0,0.35)",
+      zeroline: false
+    },
+    zaxis: {
+      range: [0,zmax],
+      title: {
+        text: "φ(u₁,u₂)",
+        font: { family: "Times New Roman", size: 24, color: "black" }
+      },
+      showticklabels: false,
+      ticks: "",
+      showbackground: false,
+      showgrid: true,
+      gridcolor: "rgba(0,0,0,0.35)",
+      zeroline: false
+    },
+    aspectmode: "manual",
+    aspectratio: {x: 1.0, y: 1.0, z: 0.58},
+    camera: {
+      eye: {x: 1.75, y: -2.15, z: 1.05},
+      center: {x: 0.02, y: 0.02, z: -0.10},
+      up: {x: 0, y: 0, z: 1},
+      projection: {type: "perspective"}
+    }
+  }
+};
+
+const config = {
+  responsive: true,
+  displaylogo: false,
+  toImageButtonOptions: {
+    format: "png",
+    filename: "form_sorm_3d_gaussian",
+    height: 1200,
+    width: 1600,
+    scale: 2
+  }
+};
+
+Plotly.newPlot("plot", traces, layout, config);
+</script>
+</body>
+</html>

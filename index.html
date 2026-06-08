@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Qian Zhang presentation &mdash; Swedish Mechanics Days 2026</title>
+
+<!-- MathJax: define your LaTeX macros once, then all math copies over from .tex -->
+<script>
+  window.MathJax = {
+    loader: { load: ['[tex]/boldsymbol'] },
+    tex: {
+      inlineMath: [['$', '$'], ['\\(', '\\)']],
+      displayMath: [['$$', '$$'], ['\\[', '\\]']],
+      packages: { '[+]': ['boldsymbol'] },
+      macros: {
+        R: '{\\mathbb{R}}',
+        N: '{\\mathbb{N}}',
+        E: '{\\mathbb{E}}',
+        bm: ['{\\boldsymbol{#1}}', 1],
+        argmin: '{\\operatorname*{arg\\,min}}',
+        argmax: '{\\operatorname*{arg\\,max}}'
+      }
+    },
+    svg: { fontCache: 'global' }
+  };
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js" async></script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!-- STIX Two Text: the academic serif that pairs natively with MathJax's STIX math -->
+<link href="https://fonts.googleapis.com/css2?family=STIX+Two+Text:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: 'STIX Two Text', 'Times New Roman', Times, serif;
+    font-weight: 400;
+    color: #1a1a1a;
+    background: #fbf9f3;            /* warm paper */
+    line-height: 1.55;
+    font-size: 1.18rem;             /* proportional content */
+    height: 100vh;
+    overflow-y: scroll;
+    scroll-snap-type: y mandatory;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Subtle paper texture */
+  body::before {
+    content: "";
+    position: fixed; inset: 0;
+    background-image:
+      radial-gradient(circle at 20% 10%, rgba(180,160,120,0.05), transparent 40%),
+      radial-gradient(circle at 80% 90%, rgba(180,160,120,0.04), transparent 40%);
+    pointer-events: none; z-index: 0;
+  }
+
+  /* Each slide is a full-viewport unit */
+  .slide {
+    height: 100vh;
+    width: 100vw;
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
+    padding: 3.5rem 5rem 3.5rem 5rem;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    overflow: hidden;
+    z-index: 1;
+  }
+  .slide-inner {
+    max-width: 1100px;
+    margin: 0 auto;
+    width: 100%;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+  }
+
+  /* Title bar at top of each slide */
+  .slide-title {
+    font-family: 'EB Garamond', 'STIX Two Text', 'Times New Roman', serif;
+    font-weight: 500;
+    font-style: italic;
+    font-size: 2.2rem;
+    color: #1a1a1a;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid #1a1a1a;
+    margin-bottom: 1.8rem;
+    letter-spacing: 0.005em;
+    position: relative;
+  }
+  .slide-title::after {
+    content: "";
+    position: absolute;
+    left: 0; right: 0; bottom: -4px;
+    height: 1px;
+    background: #1a1a1a;
+  }
+
+  /* Section divider slides */
+  .section-divider {
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    background: #fbf9f3;
+    color: #1a1a1a;
+  }
+  .section-divider .eyebrow {
+    font-family: 'EB Garamond', serif;
+    font-style: italic;
+    font-size: 1rem;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: #6a5d44;
+    margin-bottom: 2rem;
+  }
+  .section-divider h1 {
+    font-family: 'EB Garamond', 'STIX Two Text', serif;
+    font-weight: 500;
+    font-style: italic;
+    font-size: clamp(3.2rem, 6.2vw, 5.4rem);
+    line-height: 1.1;
+    border-top: 1px solid #1a1a1a;
+    border-bottom: 1px solid #1a1a1a;
+    padding: 2rem 3rem;
+    max-width: 90%;
+  }
+
+  /* Title slide */
+  .title-slide {
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+  }
+  .title-slide .conf {
+    font-family: 'EB Garamond', serif;
+    font-style: italic;
+    font-size: 1rem;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: #6a5d44;
+    margin-bottom: 2.5rem;
+  }
+  .title-slide h1 {
+    font-family: 'EB Garamond', 'STIX Two Text', serif;
+    font-weight: 500;
+    font-size: clamp(2.6rem, 5.2vw, 4.2rem);
+    line-height: 1.18;
+    margin-bottom: 2rem;
+    max-width: 950px;
+  }
+  .title-slide .divider {
+    width: 120px; height: 1px;
+    background: #1a1a1a; margin: 1.8rem auto;
+    position: relative;
+  }
+  .title-slide .divider::before,
+  .title-slide .divider::after {
+    content: ""; position: absolute; top: -2px;
+    width: 5px; height: 5px; border-radius: 50%;
+    background: #1a1a1a;
+  }
+  .title-slide .divider::before { left: -10px; }
+  .title-slide .divider::after  { right: -10px; }
+
+  .title-slide .authors {
+    font-size: 1.3rem; margin-bottom: 1rem;
+    font-variant: small-caps;
+    letter-spacing: 0.04em;
+  }
+  .title-slide .affil {
+    font-size: 1rem; color: #444;
+    max-width: 720px; line-height: 1.7;
+    font-style: italic;
+  }
+  .title-slide .emails {
+    font-size: 0.9rem; color: #777;
+    font-family: 'STIX Two Text', serif;
+    margin-top: 1rem;
+  }
+  .title-slide .date {
+    font-size: 1rem; color: #555;
+    margin-top: 2.5rem; letter-spacing: 0.15em;
+    font-variant: small-caps;
+  }
+
+  /* "Block" -- journal theorem box */
+  .block {
+    background: transparent;
+    border-left: 2px solid #1a1a1a;
+    padding: 0.6rem 1.4rem;
+    margin: 1rem 0;
+    border-radius: 0;
+  }
+  .block-title {
+    font-family: 'EB Garamond', serif;
+    font-weight: 600;
+    font-style: italic;
+    font-size: 1.05rem;
+    color: #1a1a1a;
+    text-transform: none;
+    letter-spacing: 0;
+    margin-bottom: 0.5rem;
+  }
+  .block-title::after { content: "."; }
+  .section-divider .block, .section-divider .block-title { color: inherit; background: transparent; border-color: currentColor; }
+
+  /* Columns */
+  .cols { display: grid; gap: 2.5rem; align-items: start; }
+  .cols-2 { grid-template-columns: 1fr 1fr; }
+  .cols-55-45 { grid-template-columns: 55% 1fr; }
+  .cols-52-48 { grid-template-columns: 52% 1fr; }
+
+  /* Body text utilities */
+  .small   { font-size: 1.02rem; }
+  .smaller { font-size: 0.94rem; }
+  .tiny    { font-size: 0.85rem; }
+  .mut     { color: #5a5a5a; }
+  ul, ol { padding-left: 1.5rem; margin: 0.6rem 0; }
+  ul    { list-style-type: '\2014  '; }   /* em dash */
+  ul ul { list-style-type: '\B7  '; }     /* middle dot */
+  li { margin: 0.4rem 0; padding-left: 0.3rem; }
+  li ul { margin: 0.3rem 0; }
+  b, strong { font-weight: 600; }
+  em, i { font-style: italic; }
+  .underline { text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; }
+
+  /* Figures */
+  figure { text-align: center; margin: 0.8rem 0; }
+  figure img { max-width: 100%; max-height: 55vh; object-fit: contain; }
+  figure figcaption {
+    font-size: 0.92rem; color: #444;
+    margin-top: 0.6rem; font-style: italic;
+    font-family: 'EB Garamond', serif;
+  }
+  .img-placeholder {
+    background: #f3eee2;
+    border: 1px dashed #8b7d5e;
+    padding: 2rem;
+    text-align: center;
+    color: #6a5d44;
+    font-family: 'STIX Two Text', serif;
+    font-style: italic;
+    font-size: 0.95rem;
+    border-radius: 0;
+  }
+
+  /* Tables -- booktabs style */
+  table {
+    border-collapse: collapse;
+    margin: 1rem auto;
+    font-size: 1rem;
+    font-family: 'STIX Two Text', serif;
+  }
+  th, td { padding: 0.5rem 1.1rem; text-align: center; }
+  th {
+    border-top: 1.5px solid #1a1a1a;
+    border-bottom: 0.8px solid #1a1a1a;
+    font-weight: 600;
+    font-style: italic;
+    font-family: 'EB Garamond', serif;
+  }
+  td.lab { text-align: left; font-style: italic; }
+  tr.top-rule td { border-top: 0.5px solid #1a1a1a; }
+  tr.bot-rule td { border-bottom: 1.5px solid #1a1a1a; }
+  td.best { font-weight: 700; }
+
+  /* Math sizing */
+  mjx-container { font-size: 1.05em !important; }
+  mjx-container[display="true"] { margin: 0.8em 0 !important; }
+  .math-tight mjx-container { font-size: 0.95em !important; }
+
+  p { margin: 0.5rem 0; text-align: justify; hyphens: auto; }
+
+  /* Nav dots */
+  .nav-dots {
+    position: fixed; right: 1.2rem; top: 50%; transform: translateY(-50%);
+    z-index: 100; display: flex; flex-direction: column; gap: 0.55rem;
+  }
+  .nav-dots a {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: rgba(0,0,0,0.22); display: block;
+    transition: all 0.25s ease;
+  }
+  .nav-dots a:hover { background: #1a1a1a; transform: scale(1.5); }
+
+  /* Slide counter -- like a page number */
+  .slide-num {
+    position: absolute; bottom: 1.2rem; right: 2rem;
+    font-size: 0.85rem; color: #888;
+    font-family: 'EB Garamond', serif;
+    font-style: italic;
+    letter-spacing: 0.05em;
+  }
+  .slide-num::before { content: "\2014  "; }
+  .slide-num::after  { content: "  \2014"; }
+
+  /* Scroll hint on title slide only */
+  .scroll-hint {
+    position: absolute; bottom: 1.8rem; left: 50%; transform: translateX(-50%);
+    font-size: 0.8rem; letter-spacing: 0.25em; text-transform: uppercase;
+    color: #888; animation: bounce 2s infinite;
+    font-family: 'EB Garamond', serif; font-style: italic;
+  }
+  @keyframes bounce {
+    0%,100% { transform: translate(-50%,0); opacity: 0.5; }
+    50%     { transform: translate(-50%,6px); opacity: 1; }
+  }
+
+  /* Academic call-to-action button */
+  .acad-btn {
+    display: inline-block;
+    font-family: 'STIX Two Text', 'Times New Roman', serif;
+    font-style: normal;
+    font-size: 1.15rem;
+    letter-spacing: 0.02em;
+    color: #1a1a1a;
+    background: #fbf9f3;
+    padding: 0.75rem 1.8rem;
+    border: 1px solid #1a1a1a;
+    text-decoration: none;
+    transition: background 0.15s ease, color 0.15s ease;
+    cursor: pointer;
+  }
+  .acad-btn:hover { background: #1a1a1a; color: #fbf9f3; }
+
+  @media (max-width: 800px) {
+    body { font-size: 1rem; }
+    .slide { padding: 2rem 1.5rem; }
+    .cols-2, .cols-55-45, .cols-52-48 { grid-template-columns: 1fr; }
+    .nav-dots { display: none; }
+    .slide-title { font-size: 1.6rem; }
+  }
+</style>
+</head>
+<body>
+
+<nav class="nav-dots" id="navDots">
+  <a href="#s0"></a>
+  <a href="#s4"></a>
+  <a href="#s7"></a>
+  <a href="#s11"></a>
+  <a href="#s25"></a>
+</nav>
+
+<!-- =================== 0. Title =================== -->
+<section class="slide title-slide" id="s0">
+  <div class="slide-inner" style="justify-content:center;align-items:center;text-align:center;font-family:'STIX Two Text',serif;">
+
+    <p style="font-variant:small-caps;letter-spacing:0.18em;color:#1a1a1a;font-size:1rem;margin-bottom:3rem;">
+      Swedish Mechanics Days &nbsp;&mdash;&nbsp; SMD 2026
+    </p>
+
+    <h1 style="font-family:'STIX Two Text',serif;font-weight:400;font-style:normal;font-size:clamp(2.4rem,4.6vw,3.8rem);line-height:1.2;margin:0;max-width:900px;">
+      Interactive Demonstrations
+    </h1>
+    <p style="font-size:1.15rem;color:#444;margin-top:0.8rem;">
+      accompanying the talk on analytical sensitivities of SORM
+    </p>
+
+    <div style="width:140px;height:1px;background:#1a1a1a;margin:2.5rem auto;"></div>
+
+    <p style="font-variant:small-caps;letter-spacing:0.06em;font-size:1.25rem;">
+      Qian Zhang
+    </p>
+
+    <p style="color:#666;letter-spacing:0.12em;font-size:0.9rem;margin-top:3rem;font-variant:small-caps;">
+      Lund &nbsp;&middot;&nbsp; 2026
+    </p>
+
+    <div class="scroll-hint">scroll &darr;</div>
+  </div>
+  <div class="slide-num">i</div>
+</section>
+
+<!-- =================== 4. Motivation =================== -->
+<section class="slide" id="s4">
+  <div class="slide-inner" style="justify-content:center;font-family:'STIX Two Text',serif;">
+
+    <p style="font-variant:small-caps;letter-spacing:0.15em;color:#1a1a1a;font-size:0.95rem;text-align:center;margin-bottom:1.2rem;">
+      1. &nbsp; Motivation
+    </p>
+
+    <h2 style="font-weight:400;font-size:clamp(1.8rem,3.4vw,2.4rem);text-align:center;margin-bottom:0.4rem;line-height:1.3;">
+      First-order vs. second-order optimisation
+    </h2>
+    <p style="text-align:center;color:#555;font-size:1.05rem;margin-bottom:2rem;">
+      gradient descent vs. Newton's method
+    </p>
+
+    <div style="text-align:center;font-size:1.1rem;color:#1a1a1a;margin-bottom:2.5rem;">
+      $$\bm{x}_{k+1}=\bm{x}_{k}-\alpha\,\nabla f(\bm{x}_k)
+      \qquad\text{vs.}\qquad
+      \bm{x}_{k+1}=\bm{x}_{k}-\bigl[\nabla^{2} f(\bm{x}_k)\bigr]^{-1}\nabla f(\bm{x}_k)$$
+    </div>
+
+    <p style="text-align:center;font-size:1.1rem;color:#1a1a1a;margin-bottom:2rem;">
+      Newton converges fast; gradient descent zig-zags.
+    </p>
+
+    <div style="text-align:center;">
+      <a class="acad-btn" href="second_order_sensitivity_optimization_demo.html">
+        Launch interactive demo &nbsp;&rarr;
+      </a>
+    </div>
+  </div>
+  <div class="slide-num">1</div>
+</section>
+
+<!-- =================== 7. Failure Probability Integral =================== -->
+<section class="slide" id="s7">
+  <div class="slide-inner" style="justify-content:center;font-family:'STIX Two Text',serif;">
+
+    <p style="font-variant:small-caps;letter-spacing:0.15em;color:#1a1a1a;font-size:0.95rem;text-align:center;margin-bottom:1.2rem;">
+      2. &nbsp; Failure Probability Integral
+    </p>
+
+    <h2 style="font-weight:400;font-size:clamp(1.8rem,3.4vw,2.4rem);text-align:center;margin-bottom:0.4rem;line-height:1.3;">
+      A geometric view of FORM &amp; SORM
+    </h2>
+    <p style="text-align:center;color:#555;font-size:1.05rem;margin-bottom:2rem;">
+      approximating the failure integral in standard normal space
+    </p>
+
+    <div style="text-align:center;font-size:1.1rem;color:#1a1a1a;margin-bottom:2.5rem;">
+      $$P_f \;=\; \int_{g(\bm{u})\le 0}\varphi_n(\bm{u})\,\mathrm{d}\bm{u}$$
+    </div>
+
+    <div style="text-align:center;">
+      <a class="acad-btn" href="form_sorm_3d_gaussian_plotly_v4_full.html">
+        Launch interactive demo &nbsp;&rarr;
+      </a>
+    </div>
+  </div>
+  <div class="slide-num">2</div>
+</section>
+
+<!-- =================== 11. SORM =================== -->
+<section class="slide" id="s11">
+  <div class="slide-inner" style="justify-content:center;font-family:'STIX Two Text',serif;">
+
+    <p style="font-variant:small-caps;letter-spacing:0.15em;color:#1a1a1a;font-size:0.95rem;text-align:center;margin-bottom:1.2rem;">
+      3. &nbsp; Second-Order Reliability Method
+    </p>
+
+    <h2 style="font-weight:400;font-size:clamp(1.8rem,3.4vw,2.4rem);text-align:center;margin-bottom:0.4rem;line-height:1.3;">
+      Breitung's asymptotic formula
+    </h2>
+    <p style="text-align:center;color:#555;font-size:1.05rem;margin-bottom:2rem;">
+      a closer look at the missing steps
+    </p>
+
+    <div style="text-align:center;font-size:1.1rem;color:#1a1a1a;margin-bottom:2.5rem;">
+      $$P_f \;\approx\; \Phi(-\beta)\,\prod_{i=1}^{n-1}\bigl(1+\beta\kappa_i\bigr)^{-1/2}$$
+    </div>
+
+    <div style="text-align:center;">
+      <a class="acad-btn" href="sorm_breitung_missing_derivation.html">
+        Open detailed derivation &nbsp;&rarr;
+      </a>
+    </div>
+  </div>
+  <div class="slide-num">3</div>
+</section>
+
+<!-- =================== 25. Thank you =================== -->
+<section class="slide title-slide" id="s25">
+  <div class="slide-inner" style="justify-content:center;align-items:center;text-align:center;font-family:'STIX Two Text',serif;">
+
+    <h1 style="font-weight:400;font-size:clamp(3rem,6vw,5rem);line-height:1.1;margin:0;">
+      Thank you
+    </h1>
+
+    <div style="width:140px;height:1px;background:#1a1a1a;margin:2rem auto;"></div>
+
+    <p style="font-size:1.3rem;color:#444;">
+      Questions &amp; discussion
+    </p>
+
+    <p style="font-variant:small-caps;letter-spacing:0.06em;font-size:1rem;margin-top:3rem;color:#666;">
+      Qian Zhang &nbsp;&middot;&nbsp; SMD 2026
+    </p>
+  </div>
+  <div class="slide-num">&#8718;</div>
+</section>
+
+<script>
+  // Keyboard navigation only -- nav dots and slide numbers are authored in HTML
+  const slides = document.querySelectorAll('.slide');
+  document.addEventListener('keydown', (e) => {
+    const cur = Math.round(window.scrollY / window.innerHeight);
+    if (['ArrowDown','PageDown',' '].includes(e.key) && cur < slides.length - 1) {
+      e.preventDefault();
+      slides[cur + 1].scrollIntoView();
+    } else if (['ArrowUp','PageUp'].includes(e.key) && cur > 0) {
+      e.preventDefault();
+      slides[cur - 1].scrollIntoView();
+    }
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Newton vs Gradient Descent Demo</title>
+
+<style>
+    body {
+        margin: 0;
+        font-family: Arial, sans-serif;
+        background: #f3f3f3;
+        color: #222;
+    }
+
+    #wrap {
+        max-width: 1220px;
+        margin: 0 auto;
+        padding: 16px;
+    }
+
+    h2 {
+        margin: 0 0 10px 0;
+        font-size: 22px;
+    }
+
+    canvas {
+        width: 100%;
+        height: 620px;
+        display: block;
+        background: white;
+        border: 1px solid #bbb;
+    }
+
+    .panel {
+        margin-top: 12px;
+        padding: 14px;
+        background: white;
+        border: 1px solid #bbb;
+    }
+
+    .row {
+        display: grid;
+        grid-template-columns: 180px 1fr 80px;
+        gap: 12px;
+        align-items: center;
+        margin: 8px 0;
+    }
+
+    button {
+        padding: 8px 12px;
+        margin: 6px 8px 6px 0;
+        cursor: pointer;
+    }
+
+    .status {
+        white-space: pre-wrap;
+        font-family: Consolas, monospace;
+        font-size: 13px;
+        line-height: 1.35;
+    }
+
+    code {
+        background: #eee;
+        padding: 1px 4px;
+    }
+</style>
+</head>
+
+<body>
+<div id="wrap">
+
+<h2>Visual benefit of second-order sensitivity in optimization</h2>
+
+<canvas id="canvas" width="1220" height="620"></canvas>
+
+<div class="panel">
+    <div class="row">
+        <label>initial θ₁</label>
+        <input id="theta1" type="range" min="-2.8" max="2.8" step="0.05" value="-2.20">
+        <span id="theta1v"></span>
+    </div>
+
+    <div class="row">
+        <label>initial θ₂</label>
+        <input id="theta2" type="range" min="-1.8" max="3.0" step="0.05" value="2.50">
+        <span id="theta2v"></span>
+    </div>
+
+    <button onclick="runOneStep()">Show one-step comparison</button>
+    <button onclick="runBoth()">Run full optimization</button>
+    <button onclick="resetAll()">Reset</button>
+
+    <div class="status" id="status"></div>
+</div>
+
+<div class="panel">
+    <b>Meaning.</b>
+    The orange path is gradient descent:
+    <code>Δθ = −η∇f</code>.
+    It only knows the local downhill direction.
+    The blue path is Newton:
+    <code>Δθ = −H⁻¹∇f</code>.
+    It uses curvature and variable coupling. On this tilted narrow valley, Newton directly understands the valley geometry, while gradient descent zig-zags.
+</div>
+
+</div>
+
+<script>
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+
+const s1 = document.getElementById("theta1");
+const s2 = document.getElementById("theta2");
+const s1v = document.getElementById("theta1v");
+const s2v = document.getElementById("theta2v");
+const statusBox = document.getElementById("status");
+
+let theta1 = Number(s1.value);
+let theta2 = Number(s2.value);
+
+let gd, nt;
+let gdPath = [];
+let ntPath = [];
+let gdHist = [];
+let ntHist = [];
+
+let mode = "idle";
+let iter = 0;
+let animating = false;
+
+const xMin = -3.0, xMax = 3.0;
+const yMin = -2.0, yMax = 3.2;
+
+const center = { x: 1.0, y: 0.25 };
+const angle = -0.68;
+const c = Math.cos(angle);
+const s = Math.sin(angle);
+
+/*
+    Rotated narrow quadratic valley:
+
+    u = rotated θ1 direction
+    v = rotated θ2 direction
+
+    f(θ1,θ2) = 1/2 (80u² + v²)
+
+    The Hessian has very different curvature in two directions.
+    This is exactly where second-order information is useful.
+*/
+function uv(x, y) {
+    const dx = x - center.x;
+    const dy = y - center.y;
+
+    return {
+        u: c * dx + s * dy,
+        v: -s * dx + c * dy
+    };
+}
+
+function f(x, y) {
+    const q = uv(x, y);
+    return 0.5 * (80.0 * q.u * q.u + q.v * q.v);
+}
+
+function grad(x, y) {
+    const q = uv(x, y);
+
+    const fu = 80.0 * q.u;
+    const fv = q.v;
+
+    return [
+        fu * c + fv * (-s),
+        fu * s + fv * c
+    ];
+}
+
+function hessian() {
+    /*
+        H = Rᵀ diag(80,1) R
+    */
+    return [
+        [80 * c * c + s * s, 80 * c * s - s * c],
+        [80 * c * s - s * c, 80 * s * s + c * c]
+    ];
+}
+
+function dot(a, b) {
+    return a[0] * b[0] + a[1] * b[1];
+}
+
+function norm(v) {
+    return Math.sqrt(dot(v, v));
+}
+
+function clamp(v, lo, hi) {
+    return Math.max(lo, Math.min(hi, v));
+}
+
+function solve2x2(A, b) {
+    const a = A[0][0], c = A[0][1], d = A[1][0], e = A[1][1];
+    const det = a * e - c * d;
+
+    return [
+        ( e * b[0] - c * b[1]) / det,
+        (-d * b[0] + a * b[1]) / det
+    ];
+}
+
+function gradientStep() {
+    const g = grad(gd.x, gd.y);
+
+    /*
+        Stable but slow learning rate.
+        Because the largest curvature is 80, η must be small.
+    */
+    const eta = 0.022;
+
+    gd.x = clamp(gd.x - eta * g[0], xMin, xMax);
+    gd.y = clamp(gd.y - eta * g[1], yMin, yMax);
+}
+
+function newtonStep() {
+    const g = grad(nt.x, nt.y);
+    const H = hessian();
+
+    const d = solve2x2(H, [-g[0], -g[1]]);
+
+    nt.x = clamp(nt.x + d[0], xMin, xMax);
+    nt.y = clamp(nt.y + d[1], yMin, yMax);
+}
+
+function mapX(x) {
+    return 70 + (x - xMin) / (xMax - xMin) * 530;
+}
+
+function mapY(y) {
+    return 75 + (yMax - y) / (yMax - yMin) * 455;
+}
+
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    ctx.fillStyle = "white";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    drawHeader();
+    drawLandscape();
+    drawConvergencePlot();
+}
+
+function drawHeader() {
+    ctx.fillStyle = "#111";
+    ctx.font = "bold 20px Arial";
+    ctx.fillText("Second-order information corrects the update direction and step size", 32, 32);
+
+    ctx.font = "14px Arial";
+    ctx.fillText("Objective: f(θ₁,θ₂)=1/2(80u²+v²), a tilted narrow valley. Minimum at θ* = (1.00, 0.25).", 32, 55);
+}
+
+function drawLandscape() {
+    const plotX = 70;
+    const plotY = 75;
+    const plotW = 530;
+    const plotH = 455;
+
+    // panel border
+    ctx.strokeStyle = "#222";
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(plotX, plotY, plotW, plotH);
+
+    ctx.fillStyle = "#111";
+    ctx.font = "bold 15px Arial";
+    ctx.fillText("A. Optimization path on contour map", plotX, 560);
+
+    // Clip all contour/path/point drawings inside the plot rectangle
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(plotX, plotY, plotW, plotH);
+    ctx.clip();
+
+    drawEllipticContours();
+
+    drawPath(gdPath, "#d35400", true);
+    drawPath(ntPath, "#0057b8", true);
+
+    drawPoint(center.x, center.y, "#111", "minimum θ*");
+
+    if (gdPath.length > 0) drawPoint(gd.x, gd.y, "#d35400", "gradient");
+    if (ntPath.length > 0) drawPoint(nt.x, nt.y, "#0057b8", "Newton");
+
+    ctx.restore();
+
+    // redraw border after clipping, so border stays clean
+    ctx.strokeStyle = "#222";
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(plotX, plotY, plotW, plotH);
+
+    drawAxesLabels();
+}
+
+function drawEllipticContours() {
+    const levels = [0.08, 0.2, 0.5, 1.2, 3, 7, 16, 35, 75, 150, 300];
+
+    for (const L of levels) {
+        ctx.beginPath();
+
+        for (let k = 0; k <= 240; k++) {
+            const t = 2 * Math.PI * k / 240;
+
+            const u = Math.sqrt(2 * L / 80) * Math.cos(t);
+            const v = Math.sqrt(2 * L) * Math.sin(t);
+
+            const dx = c * u - s * v;
+            const dy = s * u + c * v;
+
+            const x = center.x + dx;
+            const y = center.y + dy;
+
+            const px = mapX(x);
+            const py = mapY(y);
+
+            if (k === 0) ctx.moveTo(px, py);
+            else ctx.lineTo(px, py);
+        }
+
+        ctx.strokeStyle = "rgba(70,70,70,0.38)";
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+    }
+}
+
+function drawPath(path, color, labelSteps) {
+    if (path.length < 2) return;
+
+    ctx.beginPath();
+
+    for (let i = 0; i < path.length; i++) {
+        const p = path[i];
+        const px = mapX(p.x);
+        const py = mapY(p.y);
+
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+    }
+
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 3;
+    ctx.stroke();
+
+    for (let i = 0; i < path.length; i++) {
+        const p = path[i];
+
+        if (i === 0 || i === path.length - 1 || i % 5 === 0) {
+            const px = mapX(p.x);
+            const py = mapY(p.y);
+
+            ctx.beginPath();
+            ctx.arc(px, py, 3.8, 0, 2 * Math.PI);
+            ctx.fillStyle = color;
+            ctx.fill();
+
+            if (labelSteps && (i === 0 || i === path.length - 1 || i % 10 === 0)) {
+                ctx.font = "11px Arial";
+                ctx.fillText(String(i), px + 5, py - 5);
+            }
+        }
+    }
+}
+
+function drawPoint(x, y, color, label) {
+    const px = mapX(x);
+    const py = mapY(y);
+
+    ctx.beginPath();
+    ctx.arc(px, py, 6.5, 0, 2 * Math.PI);
+    ctx.fillStyle = color;
+    ctx.fill();
+
+    ctx.font = "13px Arial";
+    ctx.fillStyle = color;
+    ctx.fillText(label, px + 9, py - 9);
+}
+
+function drawAxesLabels() {
+    ctx.fillStyle = "#111";
+    ctx.font = "13px Arial";
+    ctx.fillText("θ₁", 325, 552);
+
+    ctx.save();
+    ctx.translate(35, 310);
+    ctx.rotate(-Math.PI / 2);
+    ctx.fillText("θ₂", 0, 0);
+    ctx.restore();
+
+    ctx.fillStyle = "#d35400";
+    ctx.fillText("orange: gradient descent, Δθ = −η∇f", 88, 102);
+
+    ctx.fillStyle = "#0057b8";
+    ctx.fillText("blue: Newton step, Δθ = −H⁻¹∇f", 88, 124);
+}
+
+
+function drawConvergencePlot() {
+    const left = 690;
+    const top = 75;
+    const width = 450;
+    const height = 455;
+
+    ctx.strokeStyle = "#222";
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(left, top, width, height);
+
+    ctx.fillStyle = "#111";
+    ctx.font = "bold 15px Arial";
+    ctx.fillText("B. Iteration history: objective value", left, 560);
+
+    const allVals = gdHist.concat(ntHist);
+    const maxIter = Math.max(30, gdHist.length - 1, ntHist.length - 1);
+
+    let maxVal = Math.max(...allVals, 1);
+    let minVal = 1e-8;
+
+    function sx(i) {
+        return left + i / maxIter * width;
+    }
+
+    function sy(v) {
+        const lv = Math.log10(Math.max(v, minVal));
+        const lmin = Math.log10(minVal);
+        const lmax = Math.log10(maxVal);
+        return top + height - (lv - lmin) / (lmax - lmin) * height;
+    }
+
+    drawGridHistory(left, top, width, height, maxIter, minVal, maxVal);
+
+    drawHistory(gdHist, sx, sy, "#d35400");
+    drawHistory(ntHist, sx, sy, "#0057b8");
+
+    ctx.fillStyle = "#111";
+    ctx.font = "13px Arial";
+    ctx.fillText("iteration", left + width / 2 - 20, top + height + 35);
+
+    ctx.save();
+    ctx.translate(left - 48, top + height / 2 + 40);
+    ctx.rotate(-Math.PI / 2);
+    ctx.fillText("log10(f(θₖ) − f*)", 0, 0);
+    ctx.restore();
+
+    ctx.fillStyle = "#d35400";
+    ctx.fillText("gradient descent", left + 20, top + 25);
+
+    ctx.fillStyle = "#0057b8";
+    ctx.fillText("Newton", left + 20, top + 47);
+}
+
+function drawGridHistory(left, top, width, height, maxIter, minVal, maxVal) {
+    ctx.strokeStyle = "rgba(0,0,0,0.13)";
+    ctx.lineWidth = 1;
+
+    for (let i = 0; i <= 6; i++) {
+        const x = left + width * i / 6;
+        ctx.beginPath();
+        ctx.moveTo(x, top);
+        ctx.lineTo(x, top + height);
+        ctx.stroke();
+
+        ctx.fillStyle = "#555";
+        ctx.font = "11px Arial";
+        ctx.fillText(String(Math.round(maxIter * i / 6)), x - 8, top + height + 16);
+    }
+
+    const pows = [-8, -6, -4, -2, 0, 2, 4];
+    for (const p of pows) {
+        const v = Math.pow(10, p);
+        if (v < minVal || v > maxVal) continue;
+
+        const y = top + height - (Math.log10(v) - Math.log10(minVal)) / (Math.log10(maxVal) - Math.log10(minVal)) * height;
+
+        ctx.beginPath();
+        ctx.moveTo(left, y);
+        ctx.lineTo(left + width, y);
+        ctx.stroke();
+
+        ctx.fillStyle = "#555";
+        ctx.font = "11px Arial";
+        ctx.fillText("1e" + p, left - 42, y + 4);
+    }
+}
+
+function drawHistory(hist, sx, sy, color) {
+    if (hist.length < 2) return;
+
+    ctx.beginPath();
+
+    for (let i = 0; i < hist.length; i++) {
+        const x = sx(i);
+        const y = sy(hist[i]);
+
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+    }
+
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 3;
+    ctx.stroke();
+
+    for (let i = 0; i < hist.length; i++) {
+        if (i === 0 || i === hist.length - 1 || i % 5 === 0) {
+            ctx.beginPath();
+            ctx.arc(sx(i), sy(hist[i]), 3.5, 0, 2 * Math.PI);
+            ctx.fillStyle = color;
+            ctx.fill();
+        }
+    }
+}
+
+function refreshValues() {
+    theta1 = Number(s1.value);
+    theta2 = Number(s2.value);
+
+    s1v.textContent = theta1.toFixed(2);
+    s2v.textContent = theta2.toFixed(2);
+}
+
+function resetAll() {
+    refreshValues();
+
+    gd = { x: theta1, y: theta2 };
+    nt = { x: theta1, y: theta2 };
+
+    gdPath = [{ x: gd.x, y: gd.y }];
+    ntPath = [{ x: nt.x, y: nt.y }];
+
+    gdHist = [f(gd.x, gd.y)];
+    ntHist = [f(nt.x, nt.y)];
+
+    mode = "idle";
+    iter = 0;
+    animating = false;
+
+    draw();
+    updateStatus();
+}
+
+function runOneStep() {
+    resetAll();
+
+    gradientStep();
+    newtonStep();
+
+    gdPath.push({ x: gd.x, y: gd.y });
+    ntPath.push({ x: nt.x, y: nt.y });
+
+    gdHist.push(f(gd.x, gd.y));
+    ntHist.push(f(nt.x, nt.y));
+
+    mode = "one-step";
+    iter = 1;
+
+    draw();
+    updateStatus();
+}
+
+function runBoth() {
+    resetAll();
+    mode = "run";
+    animating = true;
+    animate();
+}
+
+function animate() {
+    if (!animating) return;
+
+    const stopGD = norm(grad(gd.x, gd.y)) < 1e-6;
+    const stopNT = norm(grad(nt.x, nt.y)) < 1e-6;
+
+    if ((stopGD && stopNT) || iter >= 60) {
+        animating = false;
+        draw();
+        updateStatus();
+        return;
+    }
+
+    if (!stopGD) {
+        gradientStep();
+        gdPath.push({ x: gd.x, y: gd.y });
+        gdHist.push(f(gd.x, gd.y));
+    }
+
+    if (!stopNT && ntHist.length < 3) {
+        newtonStep();
+        ntPath.push({ x: nt.x, y: nt.y });
+        ntHist.push(Math.max(f(nt.x, nt.y), 1e-12));
+    }
+
+    iter++;
+
+    draw();
+    updateStatus();
+
+    requestAnimationFrame(animate);
+}
+
+function updateStatus() {
+    const H = hessian();
+
+    const gdErr = f(gd.x, gd.y);
+    const ntErr = f(nt.x, nt.y);
+
+    statusBox.textContent =
+        "Function:\n" +
+        "  f(θ₁,θ₂) = 1/2(80u² + v²), where [u,v] are tilted coordinates\n\n" +
+
+        "Initial design:\n" +
+        "  θ₀ = [" + theta1.toFixed(4) + ", " + theta2.toFixed(4) + "]\n" +
+        "  f(θ₀) = " + f(theta1, theta2).toFixed(6) + "\n\n" +
+
+        "Hessian:\n" +
+        "  H = [[" + H[0][0].toFixed(3) + ", " + H[0][1].toFixed(3) + "], [" +
+                   H[1][0].toFixed(3) + ", " + H[1][1].toFixed(3) + "]]\n" +
+        "  strong off-diagonal terms mean θ₁ and θ₂ are coupled\n\n" +
+
+        "Gradient descent:\n" +
+        "  current θ = [" + gd.x.toFixed(6) + ", " + gd.y.toFixed(6) + "]\n" +
+        "  current f = " + gdErr.toExponential(4) + "\n" +
+        "  steps shown = " + (gdPath.length - 1) + "\n\n" +
+
+        "Newton:\n" +
+        "  current θ = [" + nt.x.toFixed(6) + ", " + nt.y.toFixed(6) + "]\n" +
+        "  current f = " + ntErr.toExponential(4) + "\n" +
+        "  steps shown = " + (ntPath.length - 1) + "\n\n" +
+
+        "Visual message:\n" +
+        "  Gradient descent follows local slope and zig-zags in the narrow valley.\n" +
+        "  Newton uses H⁻¹ to rescale and rotate the step, so it reaches the minimum directly for this quadratic case.";
+}
+
+s1.addEventListener("input", resetAll);
+s2.addEventListener("input", resetAll);
+
+resetAll();
+</script>
+
+</body>
+</html>
